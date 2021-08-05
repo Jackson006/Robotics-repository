@@ -8,23 +8,23 @@
  ****************************************************/
 
 // RTC
-#include "RTClib.h"
+#include "RTClib.h" // Includes the RTC library  
 
 RTC_PCF8523 rtc;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}; // Stores the days of the week as character values
 
 // SD Card Adalogger
-#include "FS.h"
-#include "SD.h"
-#include <Adafruit_MotorShield.h>
+#include "FS.h" // includes the FS.h library 
+#include "SD.h" // includes the SD.h library
+#include <Adafruit_MotorShield.h> // includes the adafruit motor shield library
 
-Adafruit_MotorShield AFMS = Adafruit_MotorShield();
-Adafruit_DCMotor *myMotor = AFMS.getMotor(4);
+Adafruit_MotorShield AFMS = Adafruit_MotorShield(); // a reference to the library being used
+Adafruit_DCMotor *myMotor = AFMS.getMotor(4); // a reference to the library being used
 
 // EINK
-#include "Adafruit_ThinkInk.h"
-
-#define EPD_CS      15
+#include "Adafruit_ThinkInk.h" // includes the adafruit ThinkInk.h library
+// defined variables
+#define EPD_CS      15 
 #define EPD_DC      33
 #define SRAM_CS     32
 #define EPD_RESET   -1 // can set to -1 and share with microcontroller Reset!
@@ -43,16 +43,16 @@ int soilPin = 12;//Declare a variable for the soil moisture sensor
 //prevent corrosion of the sensor as it sits in the soil.
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial) {
-    delay(10);
+  Serial.begin(9600); // sets the data rate
+  while (!Serial) { // indicates if the specified serial port is ready
+    delay(10); // delays for one milisecond 
   }
 
   // RTC
-  if (! rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    Serial.flush();
-    abort();
+  if (! rtc.begin()) { // Checks if the RTC has been initialised 
+    Serial.println("Couldn't find RTC"); // prints couldn't find RTC in the serial monitor
+    Serial.flush(); // Waits for the transmission of outgoing serial data to complete
+    abort(); // termintate sthe program
   }
 
   // The following line can be uncommented if the time needs to be reset.
@@ -61,27 +61,27 @@ void setup() {
   rtc.start();
 
   //EINK
-  display.begin(THINKINK_MONO);
-  display.clearBuffer();
+  display.begin(THINKINK_MONO); // begins to display on the ThinkInk in monochrome
+  display.clearBuffer(); // clears the buffer on the display
 
 
 
 
-  if (!SD.begin()) {
-    Serial.println("Card Mount Failed");
-    return;
+  if (!SD.begin()) { // Checks if the SD library and cardhave been initialized
+    Serial.println("Card Mount Failed"); // prints card mount failed
+    return; // returns the value
   }
-  uint8_t cardType = SD.cardType();
+  uint8_t cardType = SD.cardType(); // gets the SD card type
 
-  if (cardType == CARD_NONE) {
-    Serial.println("No SD card attached");
-    return;
+  if (cardType == CARD_NONE) { // Checks if there is an SD card being used
+    Serial.println("No SD card attached"); // Prints no SD card attached to the serial monitor
+    return; // returns the value 
   }
-  Serial.println("SD Started");
+  Serial.println("SD Started"); // prints SD card started to the serial monitor
 
-  AFMS.begin();
-  myMotor->setSpeed(255);
-  logEvent("System Initialisation...");
+  AFMS.begin(); // starts the AFMS motor shield
+  myMotor->setSpeed(255); // sets the motor speed
+  logEvent("System Initialisation..."); // logs the event 
 }
 
 void loop() {
@@ -89,7 +89,7 @@ void loop() {
   // Gets the current date and time, and writes it to the Eink display.
   String currentTime = getDateTimeAsString();
 
-  drawText("The Current Time and\nDate is", EPD_BLACK, 2, 0, 0);
+  drawText("The Current Time and\nDate is", EPD_BLACK, 2, 0, 0); // draws the current date and time on the Eink in black with dimensions 2,0,0
 
   // writes the current time on the bottom half of the display (y is height)
   drawText(currentTime, EPD_BLACK, 2, 0, 75);
@@ -98,29 +98,29 @@ void loop() {
   display.drawLine(0, 50, 250, 50, EPD_BLACK);
 
 
-  int moisture = readSoil();
-  drawText(String(moisture), EPD_BLACK, 2, 0, 100);
-  display.display();
+  int moisture = readSoil(); // reads the integer soil moisture
+  drawText(String(moisture), EPD_BLACK, 2, 0, 100); // draws the current moisture value on the Eink in black with the dimensions 2,0,100
+  display.display(); // displays the above text
   // waits 180 seconds (3 minutes) as per guidelines from adafruit.
   delay(180000);
-  display.clearBuffer();
+  display.clearBuffer(); // clears the display buffer
 
-  Serial.print("Soil Moisture = ");
+  Serial.print("Soil Moisture = "); // prints the soil moisture on the serial monitor
   //get soil moisture value from the function below and print it
   Serial.println(readSoil());
 }
 
-void drawText(String text, uint16_t color, int textSize, int x, int y) {
-  display.setCursor(x, y);
-  display.setTextColor(color);
-  display.setTextSize(textSize);
-  display.setTextWrap(true);
-  display.print(text);
+void drawText(String text, uint16_t color, int textSize, int x, int y) { // Draws the text in a monochrome colour with the correct x and y coordinates
+  display.setCursor(x, y); // displays the cursur at x and y
+  display.setTextColor(color); // displays the chosen colour
+  display.setTextSize(textSize); // displays the chosen text size
+  display.setTextWrap(true); // sets text wrap to true
+  display.print(text); // prints the text with the above values
 
 }
 
 String getDateTimeAsString() {
-  DateTime now = rtc.now();
+  DateTime now = rtc.now(); // gets the current date on the real time clock
 
   //Prints the date and time to the Serial monitor for debugging.
   /*
@@ -144,7 +144,7 @@ String getDateTimeAsString() {
   char humanReadableDate[20];
   sprintf(humanReadableDate, "%02d:%02d:%02d %02d/%02d/%02d",  now.hour(), now.minute(), now.second(), now.day(), now.month(), now.year());
 
-  return humanReadableDate;
+  return humanReadableDate; // returns the readable date 
 }
 
 void logEvent(String dataToLog) {
