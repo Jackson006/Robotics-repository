@@ -52,7 +52,7 @@ void setup() {
   if (! rtc.begin()) { // Checks if the RTC has been initialised 
     Serial.println("Couldn't find RTC"); // prints couldn't find RTC in the serial monitor
     Serial.flush(); // Waits for the transmission of outgoing serial data to complete
-    abort(); // termintate sthe program
+    abort(); // termintate the program
   }
 
   // The following line can be uncommented if the time needs to be reset.
