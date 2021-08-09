@@ -14,8 +14,8 @@ RTC_PCF8523 rtc;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}; // Stores the days of the week as character values
 
 // SD Card Adalogger
-#include "FS.h" // includes the FS.h library 
-#include "SD.h" // includes the SD.h library
+#include "FS.h" // Enables read/write access to the SD card on the Adalogger
+#include "SD.h" // Enables read/write access to the SD card on the Adalogger
 #include <Adafruit_MotorShield.h> // includes the adafruit motor shield library
 
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); // a reference to the library being used
