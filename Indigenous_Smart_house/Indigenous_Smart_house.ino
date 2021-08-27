@@ -8,25 +8,25 @@
  ****************************************************/
 
 // RTC
-#include "RTClib.h" // Includes the RTC library  
+#include "RTClib.h" // The RTC lib gives us access to the real time clock
 
 RTC_PCF8523 rtc;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}; // Stores the days of the week as character values
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}; // Stores the days of the week as character values so they can be read later
 
 // SD Card Adalogger
 #include "FS.h" // Enables read/write access to the SD card on the Adalogger
 #include "SD.h" // Enables read/write access to the SD card on the Adalogger
-#include <Adafruit_MotorShield.h> // includes the adafruit motor shield library
+#include <Adafruit_MotorShield.h> // allows us access to the motor shield
 
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); // a reference to the library being used
 Adafruit_DCMotor *myMotor = AFMS.getMotor(4); // a reference to the library being used
 
 // EINK
-#include "Adafruit_ThinkInk.h" // includes the adafruit ThinkInk.h library
+#include "Adafruit_ThinkInk.h" // allows us access to the thinkInk
 // defined variables
-#define EPD_CS      15 
-#define EPD_DC      33
-#define SRAM_CS     32
+#define EPD_CS      15 // variable for the EPD
+#define EPD_DC      33 // variable for the EPD
+#define SRAM_CS     32 // variable for the sram cs
 #define EPD_RESET   -1 // can set to -1 and share with microcontroller Reset!
 #define EPD_BUSY    -1 // can set to -1 to not use a pin (will wait a fixed delay)
 
@@ -34,25 +34,25 @@ Adafruit_DCMotor *myMotor = AFMS.getMotor(4); // a reference to the library bein
 ThinkInk_213_Mono_B72 display(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
 
 // moisture sensor
-int moistureValue = 0; //value for storing moisture value
-int soilPin = 12;//Declare a variable for the soil moisture sensor
-// int soilPower = 7;//Variable for Soil moisture Power
+int moistureValue = 0; // value for storing moisture value which can be read later
+int soilPin = 12;// Declare a variable for the soil moisture sensor which can be read later
+// int soilPower = 7;// Variable for Soil moisture Power which can be read later
 
 //Rather than powering the sensor through the 3.3V or 5V pins,
 //we'll use a digital pin to power the sensor. This will
 //prevent corrosion of the sensor as it sits in the soil.
 
 void setup() {
-  Serial.begin(9600); // sets the data rate
+  Serial.begin(9600); // sets the data rate of the serial moniter
   while (!Serial) { // indicates if the specified serial port is ready
-    delay(10); // delays for one milisecond 
+    delay(10); // delays for one milisecond
   }
 
   // RTC
-  if (! rtc.begin()) { // Checks if the RTC has been initialised 
-    Serial.println("Couldn't find RTC"); // prints couldn't find RTC in the serial monitor
+  if (! rtc.begin()) { // Checks if the RTC has been initialised
+    Serial.println("Couldn't find RTC"); // prints couldn't find RTC in the serial monitor when it cannot find the RTC
     Serial.flush(); // Waits for the transmission of outgoing serial data to complete
-    abort(); // termintate the program
+    abort(); // termintate the program if there is a problem
   }
 
   // The following line can be uncommented if the time needs to be reset.
@@ -61,27 +61,27 @@ void setup() {
   rtc.start();
 
   //EINK
-  display.begin(THINKINK_MONO); // begins to display on the ThinkInk in monochrome
+  display.begin(THINKINK_MONO); // displays the value of the data in monochrome
   display.clearBuffer(); // clears the buffer on the display
 
 
 
 
   if (!SD.begin()) { // Checks if the SD library and cardhave been initialized
-    Serial.println("Card Mount Failed"); // prints card mount failed
-    return; // returns the value
+    Serial.println("Card Mount Failed"); // prints card mount failed if there is an issue with the SD card
+    return; // returns the value of the SD card
   }
   uint8_t cardType = SD.cardType(); // gets the SD card type
 
   if (cardType == CARD_NONE) { // Checks if there is an SD card being used
-    Serial.println("No SD card attached"); // Prints no SD card attached to the serial monitor
-    return; // returns the value 
+    Serial.println("No SD card attached"); // Prints no SD card attached to the serial monitor if there is no SD card attached
+    return; // returns the value of the SD card's slot
   }
   Serial.println("SD Started"); // prints SD card started to the serial monitor
 
   AFMS.begin(); // starts the AFMS motor shield
   myMotor->setSpeed(255); // sets the motor speed
-  logEvent("System Initialisation..."); // logs the event 
+  logEvent("System Initialisation..."); // logs the event on the SD card
 }
 
 void loop() {
@@ -101,6 +101,10 @@ void loop() {
   int moisture = readSoil(); // reads the integer soil moisture
   drawText(String(moisture), EPD_BLACK, 2, 0, 100); // draws the current moisture value on the Eink in black with the dimensions 2,0,100
   display.display(); // displays the above text
+
+  waterPlant(moisture);
+
+  logEvent("updating the EPD"); // Logs the event to the SD card
   // waits 180 seconds (3 minutes) as per guidelines from adafruit.
   delay(180000);
   display.clearBuffer(); // clears the display buffer
@@ -144,7 +148,7 @@ String getDateTimeAsString() {
   char humanReadableDate[20];
   sprintf(humanReadableDate, "%02d:%02d:%02d %02d/%02d/%02d",  now.hour(), now.minute(), now.second(), now.day(), now.month(), now.year());
 
-  return humanReadableDate; // returns the readable date 
+  return humanReadableDate; // returns the readable date
 }
 
 void logEvent(String dataToLog) {
@@ -200,4 +204,20 @@ int readSoil()
 {
   moistureValue = analogRead(soilPin);//Read the SIG value form sensor
   return moistureValue;//send current moisture value
+}
+
+void waterPlant(int moistureValue) {
+  /*
+     Write a function which takes the mositure value
+     and if it's below a certain value turn the pump on
+     the function will be called waterPlant() which will
+     take the moisture value as an argument, and return no value
+  */
+  if (int moistureValue < 1000 ) {
+    // motor/pump on
+    myMotor->run(FORWARD); // may need to change to BACKWARD
+  } else {
+    // motor/ pump off
+    myMotor->run(RELEASE);
+  }
 }
