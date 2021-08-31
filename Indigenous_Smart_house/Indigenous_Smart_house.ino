@@ -213,7 +213,7 @@ void waterPlant(int moistureValue) {
      the function will be called waterPlant() which will
      take the moisture value as an argument, and return no value
   */
-  if (int moistureValue < 1000 ) {
+  if (moistureValue < 1000 ) {
     // motor/pump on
     myMotor->run(FORWARD); // may need to change to BACKWARD
   } else {
