@@ -35,7 +35,7 @@ ThinkInk_213_Mono_B72 display(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
 
 // moisture sensor
 int moistureValue = 0; // value for storing moisture value which can be read later
-int soilPin = 12;// Declare a variable for the soil moisture sensor which can be read later
+int soilPin = A2;// Declare a variable for the soil moisture sensor which can be read later
 // int soilPower = 7;// Variable for Soil moisture Power which can be read later
 
 //Rather than powering the sensor through the 3.3V or 5V pins,
@@ -47,6 +47,8 @@ void setup() {
   while (!Serial) { // indicates if the specified serial port is ready
     delay(10); // delays for one milisecond
   }
+
+
 
   // RTC
   if (! rtc.begin()) { // Checks if the RTC has been initialised
@@ -63,9 +65,6 @@ void setup() {
   //EINK
   display.begin(THINKINK_MONO); // displays the value of the data in monochrome
   display.clearBuffer(); // clears the buffer on the display
-
-
-
 
   if (!SD.begin()) { // Checks if the SD library and cardhave been initialized
     Serial.println("Card Mount Failed"); // prints card mount failed if there is an issue with the SD card
