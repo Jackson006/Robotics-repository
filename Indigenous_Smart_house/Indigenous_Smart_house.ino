@@ -7,6 +7,15 @@
   MIT license, all text above must be included in any redistribution
  ****************************************************/
 
+// Wifi
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include "wifiConfig.h"
+String loginIndex, serverIndex;
+WebServer server(80);
+
 // RTC
 #include "RTClib.h" // The RTC lib gives us access to the real time clock
 
@@ -48,7 +57,47 @@ void setup() {
     delay(10); // delays for one milisecond
   }
 
+  setupSD();
+  // Connect to WiFi network
+  WiFi.begin(ssid, password);
+  Serial.println("");
 
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  loadHTML();
+
+  // Webserver
+  /*use mdns for host name resolution*/
+  if (!MDNS.begin(host)) { //http://esp32.local
+    Serial.println("Error setting up MDNS responder!");
+    while (1) {
+      delay(1000);
+    }
+  }
+  Serial.println("mDNS responder started");
+  /*return index page which is stored in serverIndex */
+
+  server.on("/", HTTP_GET, []() {
+    Serial.println("Index");
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", loginIndex);
+  });
+  server.on("/serverIndex", HTTP_GET, []() {
+    Serial.println("serverIndex");
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", serverIndex);
+  });
+  server.begin();
+
+  server.handleClient();
 
   // RTC
   if (! rtc.begin()) { // Checks if the RTC has been initialised
@@ -82,6 +131,8 @@ void setup() {
   myMotor->setSpeed(255); // sets the motor speed
   logEvent("System Initialisation..."); // logs the event on the SD card
 }
+
+
 
 void loop() {
 
@@ -219,4 +270,43 @@ void waterPlant(int moistureValue) {
     // motor/ pump off
     myMotor->run(RELEASE);
   }
+}
+
+String readFile(fs::FS &fs, const char * path) {
+  Serial.printf("Reading file: %s\n", path);
+  char c;
+  String tempHTML = "";
+
+  File file = fs.open(path);
+  if (!file) {
+    Serial.print("Failed to open file for reading: ");
+    Serial.println(path);
+    return "";
+  }
+
+  while (file.available()) {
+    c = file.read();
+    tempHTML += c;
+  }
+  file.close();
+  return tempHTML;
+}
+
+void loadHTML() {
+  serverIndex = readFile(SD, "/serverIndex.html");
+  loginIndex = readFile(SD, "/loginIndex.html");
+}
+
+void setupSD() {
+  if (!SD.begin()) {
+    Serial.println("Card Mount Failed");
+    return;
+  }
+  uint8_t cardType = SD.cardType();
+
+  if (cardType == CARD_NONE) {
+    Serial.println("No SD card attached");
+    return;
+  }
+  Serial.println("SD Started");
 }
