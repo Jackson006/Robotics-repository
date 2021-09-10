@@ -7,103 +7,103 @@
   MIT license, all text above must be included in any redistribution
  ****************************************************/
 
-// Wifi
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <WebServer.h>
-#include <ESPmDNS.h>
+
+#define FORMAT_SPIFFS_IF_FAILED true
+
+// Wifi & Webserver
+#include "WiFi.h"
+#include "SPIFFS.h"
+#include <ESPAsyncWebServer.h>
 #include "wifiConfig.h"
-String loginIndex, serverIndex;
-WebServer server(80);
+AsyncWebServer server(80);
 
 // RTC
-#include "RTClib.h" // The RTC lib gives us access to the real time clock
+#include "RTClib.h"
 
 RTC_PCF8523 rtc;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}; // Stores the days of the week as character values so they can be read later
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
-// SD Card Adalogger
-#include "FS.h" // Enables read/write access to the SD card on the Adalogger
-#include "SD.h" // Enables read/write access to the SD card on the Adalogger
-#include <Adafruit_MotorShield.h> // allows us access to the motor shield
-
-Adafruit_MotorShield AFMS = Adafruit_MotorShield(); // a reference to the library being used
-Adafruit_DCMotor *myMotor = AFMS.getMotor(4); // a reference to the library being used
 
 // EINK
-#include "Adafruit_ThinkInk.h" // allows us access to the thinkInk
-// defined variables
-#define EPD_CS      15 // variable for the EPD
-#define EPD_DC      33 // variable for the EPD
-#define SRAM_CS     32 // variable for the sram cs
+#include "Adafruit_ThinkInk.h"
+
+#define EPD_CS      15
+#define EPD_DC      33
+#define SRAM_CS     32
 #define EPD_RESET   -1 // can set to -1 and share with microcontroller Reset!
 #define EPD_BUSY    -1 // can set to -1 to not use a pin (will wait a fixed delay)
 
 // 2.13" Monochrome displays with 250x122 pixels and SSD1675 chipset
 ThinkInk_213_Mono_B72 display(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
 
-// moisture sensor
-int moistureValue = 0; // value for storing moisture value which can be read later
-int soilPin = A2;// Declare a variable for the soil moisture sensor which can be read later
-// int soilPower = 7;// Variable for Soil moisture Power which can be read later
+// Motor Shield
+#include <Adafruit_MotorShield.h>
+Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+Adafruit_DCMotor *myMotor = AFMS.getMotor(4);
+boolean pumpIsRunning = false;
 
-//Rather than powering the sensor through the 3.3V or 5V pins,
-//we'll use a digital pin to power the sensor. This will
-//prevent corrosion of the sensor as it sits in the soil.
+// Soil Moisture
+int moistureValue = 0; //value for storing moisture value
+int soilPin = A2;//Declare a variable for the soil moisture sensor
+
+//Temperature Sensor
+#include <Wire.h>
+#include "Adafruit_ADT7410.h"
+// Create the ADT7410 temperature sensor object
+Adafruit_ADT7410 tempsensor = Adafruit_ADT7410();
 
 void setup() {
-  Serial.begin(9600); // sets the data rate of the serial moniter
-  while (!Serial) { // indicates if the specified serial port is ready
-    delay(10); // delays for one milisecond
+  Serial.begin(9600);
+  while (!Serial) {
+    delay(10);
+  }
+  delay(1000);
+
+
+  if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
+    // Follow instructions in README and install
+    // https://github.com/me-no-dev/arduino-esp32fs-plugin
+    Serial.println("SPIFFS Mount Failed");
+    return;
+  }
+  if (!tempsensor.begin()) {
+    Serial.println("Couldn't find ADT7410!");
+    while (1);
   }
 
-  setupSD();
-  // Connect to WiFi network
   WiFi.begin(ssid, password);
-  Serial.println("");
 
-  // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+    delay(1000);
+    Serial.println("Connecting to WiFi..");
   }
   Serial.println();
   Serial.print("Connected to ");
   Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-  loadHTML();
 
-  // Webserver
-  /*use mdns for host name resolution*/
-  if (!MDNS.begin(host)) { //http://esp32.local
-    Serial.println("Error setting up MDNS responder!");
-    while (1) {
-      delay(1000);
-    }
-  }
-  Serial.println("mDNS responder started");
-  /*return index page which is stored in serverIndex */
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    Serial.println("index");
+    request->send(SPIFFS, "/index.html", "text/html");
+  });
+  server.on("/dashboard", HTTP_GET, [](AsyncWebServerRequest * request) {
+    Serial.println("dashboard");
+    request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
+  });
+  server.on("/logOutput", HTTP_GET, [](AsyncWebServerRequest * request) {
+    Serial.println("output");
+    request->send(SPIFFS, "/logEvents.csv", "text/html", true);
+  });
 
-  server.on("/", HTTP_GET, []() {
-    Serial.println("Index");
-    server.sendHeader("Connection", "close");
-    server.send(200, "text/html", loginIndex);
-  });
-  server.on("/serverIndex", HTTP_GET, []() {
-    Serial.println("serverIndex");
-    server.sendHeader("Connection", "close");
-    server.send(200, "text/html", serverIndex);
-  });
   server.begin();
 
-  server.handleClient();
 
   // RTC
-  if (! rtc.begin()) { // Checks if the RTC has been initialised
-    Serial.println("Couldn't find RTC"); // prints couldn't find RTC in the serial monitor when it cannot find the RTC
-    Serial.flush(); // Waits for the transmission of outgoing serial data to complete
-    abort(); // termintate the program if there is a problem
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    Serial.flush();
+    //    abort();
   }
 
   // The following line can be uncommented if the time needs to be reset.
@@ -112,142 +112,131 @@ void setup() {
   rtc.start();
 
   //EINK
-  display.begin(THINKINK_MONO); // displays the value of the data in monochrome
-  display.clearBuffer(); // clears the buffer on the display
+  display.begin(THINKINK_MONO);
+  display.clearBuffer();
 
-  if (!SD.begin()) { // Checks if the SD library and cardhave been initialized
-    Serial.println("Card Mount Failed"); // prints card mount failed if there is an issue with the SD card
-    return; // returns the value of the SD card
-  }
-  uint8_t cardType = SD.cardType(); // gets the SD card type
-
-  if (cardType == CARD_NONE) { // Checks if there is an SD card being used
-    Serial.println("No SD card attached"); // Prints no SD card attached to the serial monitor if there is no SD card attached
-    return; // returns the value of the SD card's slot
-  }
-  Serial.println("SD Started"); // prints SD card started to the serial monitor
-
-  AFMS.begin(); // starts the AFMS motor shield
-  myMotor->setSpeed(255); // sets the motor speed
-  logEvent("System Initialisation..."); // logs the event on the SD card
+  AFMS.begin();
+  myMotor->setSpeed(255);
+  logEvent("System Initialisation...");
 }
-
-
 
 void loop() {
-
-  // Gets the current date and time, and writes it to the Eink display.
-  String currentTime = getDateTimeAsString();
-
-  drawText("The Current Time and\nDate is", EPD_BLACK, 2, 0, 0); // draws the current date and time on the Eink in black with dimensions 2,0,0
-
-  // writes the current time on the bottom half of the display (y is height)
-  drawText(currentTime, EPD_BLACK, 2, 0, 75);
-
-  // Draws a line from the leftmost pixel, on line 50, to the rightmost pixel (250) on line 50.
-  display.drawLine(0, 50, 250, 50, EPD_BLACK);
-
-
-  int moisture = readSoil(); // reads the integer soil moisture
-  drawText(String(moisture), EPD_BLACK, 2, 0, 100); // draws the current moisture value on the Eink in black with the dimensions 2,0,100
-  display.display(); // displays the above text
-
+  int moisture = readSoil();
   waterPlant(moisture);
+  updateEPD();
 
-  logEvent("updating the EPD"); // Logs the event to the SD card
+
   // waits 180 seconds (3 minutes) as per guidelines from adafruit.
   delay(180000);
-  display.clearBuffer(); // clears the display buffer
-
-  Serial.print("Soil Moisture = "); // prints the soil moisture on the serial monitor
-  //get soil moisture value from the function below and print it
-  Serial.println(readSoil());
-}
-
-void drawText(String text, uint16_t color, int textSize, int x, int y) { // Draws the text in a monochrome colour with the correct x and y coordinates
-  display.setCursor(x, y); // displays the cursur at x and y
-  display.setTextColor(color); // displays the chosen colour
-  display.setTextSize(textSize); // displays the chosen text size
-  display.setTextWrap(true); // sets text wrap to true
-  display.print(text); // prints the text with the above values
+  display.clearBuffer();
 
 }
 
-String getDateTimeAsString() {
-  DateTime now = rtc.now(); // gets the current date on the real time clock
+void updateEPD() {
+  // Config
+  drawText(WiFi.localIP().toString(), EPD_BLACK, 2, 0, 0);
+  drawText(getTimeAsString(), EPD_BLACK, 1, 200, 0);
+  drawText(getDateAsString(), EPD_BLACK, 1, 190, 10);
 
-  //Prints the date and time to the Serial monitor for debugging.
-  /*
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(" (");
-    Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
-    Serial.print(") ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
-  */
 
-  // Converts the date and time into a human-readable format.
+  // Draw lines to divvy up the EPD
+  display.drawLine(0, 20, 250, 20, EPD_BLACK);
+  display.drawLine(125, 20, 125, 122, EPD_BLACK);
+  display.drawLine(0, 75, 250, 75, EPD_BLACK);
+
+  drawText("Moisture", EPD_BLACK, 2, 0, 25);
+  drawText(String(moistureValue), EPD_BLACK, 4, 0, 45);
+
+  drawText("Pump", EPD_BLACK, 2, 130, 25);
+  if (pumpIsRunning) {
+    drawText("ON", EPD_BLACK, 4, 130, 45);
+  } else {
+    drawText("OFF", EPD_BLACK, 4, 130, 45);
+  }
+
+  drawText("Temp \tC", EPD_BLACK, 2, 0, 80);
+  drawText(String(tempsensor.readTempC()), EPD_BLACK, 4, 0, 95);
+
+  logEvent("Updating the EPD");
+  display.display();
+
+}
+
+String processor(const String& var) {
+  Serial.println(var);
+  
+  if (var == "DATETIME") {
+    String datetime = getTimeAsString() + " " + getDateAsString();
+    return datetime;
+  }
+  if (var == "MOISTURE") {
+    readSoil();
+    return String(moistureValue);
+  }
+  if (var == "TEMPINC") {
+    return String(tempsensor.readTempC());
+  }
+  if (var == "PUMPSTATE") {
+    if (pumpIsRunning) {
+      return "ON";
+    } else {
+      return "OFF";
+    }
+  }
+  return String();
+}
+
+void drawText(String text, uint16_t color, int textSize, int x, int y) {
+  display.setCursor(x, y);
+  display.setTextColor(color);
+  display.setTextSize(textSize);
+  display.setTextWrap(true);
+  display.print(text);
+}
+
+String getDateAsString() {
+  DateTime now = rtc.now();
+
+  // Converts the date into a human-readable format.
   char humanReadableDate[20];
-  sprintf(humanReadableDate, "%02d:%02d:%02d %02d/%02d/%02d",  now.hour(), now.minute(), now.second(), now.day(), now.month(), now.year());
+  sprintf(humanReadableDate, "%02d/%02d/%02d", now.day(), now.month(), now.year());
 
-  return humanReadableDate; // returns the readable date
+  return humanReadableDate;
+}
+
+String getTimeAsString() {
+  DateTime now = rtc.now();
+
+  // Converts the time into a human-readable format.
+  char humanReadableTime[20];
+  sprintf(humanReadableTime, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+
+  return humanReadableTime;
 }
 
 void logEvent(String dataToLog) {
   /*
-     Log entries to a file on an SD card.
+     Log entries to a file stored in SPIFFS partition on the ESP32.
   */
   // Get the updated/current time
   DateTime rightNow = rtc.now();
+  char csvReadableDate[25];
+  sprintf(csvReadableDate, "%02d,%02d,%02d,%02d,%02d,%02d,",  rightNow.year(), rightNow.month(), rightNow.day(), rightNow.hour(), rightNow.minute(), rightNow.second());
 
-  // Open the log file
-  File logFile = SD.open("/logEvents.csv", FILE_APPEND);
-  if (!logFile) {
-    Serial.print("Couldn't create log file");
-    abort();
-  }
+  String logTemp = csvReadableDate + dataToLog + "\n"; // Add the data to log onto the end of the date/time
 
-  // Log the event with the date, time and data
-  logFile.print(rightNow.year(), DEC);
-  logFile.print(",");
-  logFile.print(rightNow.month(), DEC);
-  logFile.print(",");
-  logFile.print(rightNow.day(), DEC);
-  logFile.print(",");
-  logFile.print(rightNow.hour(), DEC);
-  logFile.print(",");
-  logFile.print(rightNow.minute(), DEC);
-  logFile.print(",");
-  logFile.print(rightNow.second(), DEC);
-  logFile.print(",");
-  logFile.print(dataToLog);
+  const char * logEntry = logTemp.c_str(); //convert the logtemp to a char * variable
 
-  // End the line with a return character.
-  logFile.println();
-  logFile.close();
-  Serial.print("Event Logged: ");
-  Serial.print(rightNow.year(), DEC);
-  Serial.print(",");
-  Serial.print(rightNow.month(), DEC);
-  Serial.print(",");
-  Serial.print(rightNow.day(), DEC);
-  Serial.print(",");
-  Serial.print(rightNow.hour(), DEC);
-  Serial.print(",");
-  Serial.print(rightNow.minute(), DEC);
-  Serial.print(",");
-  Serial.print(rightNow.second(), DEC);
-  Serial.print(",");
-  Serial.println(dataToLog);
+  //Add the log entry to the end of logevents.csv
+  appendFile(SPIFFS, "/logEvents.csv", logEntry);
+
+  // Output the logEvents - FOR DEBUG ONLY. Comment out to avoid spamming the serial monitor.
+  //  readFile(SPIFFS, "/logEvents.csv");
+
+  Serial.print("\nEvent Logged: ");
+  Serial.println(logEntry);
 }
+
 
 //This is a function used to get the soil moisture content
 int readSoil()
@@ -258,55 +247,86 @@ int readSoil()
 
 void waterPlant(int moistureValue) {
   /*
-     Write a function which takes the mositure value
-     and if it's below a certain value turn the pump on
-     the function will be called waterPlant() which will
-     take the moisture value as an argument, and return no value
+     Write a function which takes the moisture value,
+     and if it's below a certain value, turns the pump on.
+     The function is to be called waterPlant() which will
+     take the moisture value as an argument, and return no value.
   */
   if (moistureValue < 1000 ) {
     // motor/pump on
-    myMotor->run(FORWARD); // may need to change to BACKWARD
+    myMotor->run(FORWARD); // May need to change to BACKWARD
+    pumpIsRunning = true;
   } else {
-    // motor/ pump off
+    // motor/pump off
     myMotor->run(RELEASE);
+    pumpIsRunning = false;
   }
+
 }
 
-String readFile(fs::FS &fs, const char * path) {
-  Serial.printf("Reading file: %s\n", path);
-  char c;
-  String tempHTML = "";
+//SPIFFS File Functions
+void readFile(fs::FS &fs, const char * path) {
+  Serial.printf("Reading file: %s\r\n", path);
 
   File file = fs.open(path);
-  if (!file) {
-    Serial.print("Failed to open file for reading: ");
-    Serial.println(path);
-    return "";
+  if (!file || file.isDirectory()) {
+    Serial.println("- failed to open file for reading");
+    return;
   }
 
+  Serial.println("- read from file:");
   while (file.available()) {
-    c = file.read();
-    tempHTML += c;
+    Serial.write(file.read());
   }
   file.close();
-  return tempHTML;
 }
 
-void loadHTML() {
-  serverIndex = readFile(SD, "/serverIndex.html");
-  loginIndex = readFile(SD, "/loginIndex.html");
+void writeFile(fs::FS &fs, const char * path, const char * message) {
+  Serial.printf("Writing file: %s\r\n", path);
+
+  File file = fs.open(path, FILE_WRITE);
+  if (!file) {
+    Serial.println("- failed to open file for writing");
+    return;
+  }
+  if (file.print(message)) {
+    Serial.println("- file written");
+  } else {
+    Serial.println("- write failed");
+  }
+  file.close();
 }
 
-void setupSD() {
-  if (!SD.begin()) {
-    Serial.println("Card Mount Failed");
-    return;
-  }
-  uint8_t cardType = SD.cardType();
+void appendFile(fs::FS &fs, const char * path, const char * message) {
+  Serial.printf("Appending to file: %s\r\n", path);
 
-  if (cardType == CARD_NONE) {
-    Serial.println("No SD card attached");
+  File file = fs.open(path, FILE_APPEND);
+  if (!file) {
+    Serial.println("- failed to open file for appending");
     return;
   }
-  Serial.println("SD Started");
+  if (file.print(message)) {
+    Serial.println("- message appended");
+  } else {
+    Serial.println("- append failed");
+  }
+  file.close();
+}
+
+void renameFile(fs::FS &fs, const char * path1, const char * path2) {
+  Serial.printf("Renaming file %s to %s\r\n", path1, path2);
+  if (fs.rename(path1, path2)) {
+    Serial.println("- file renamed");
+  } else {
+    Serial.println("- rename failed");
+  }
+}
+
+void deleteFile(fs::FS &fs, const char * path) {
+  Serial.printf("Deleting file: %s\r\n", path);
+  if (fs.remove(path)) {
+    Serial.println("- file deleted");
+  } else {
+    Serial.println("- delete failed");
+  }
 }
