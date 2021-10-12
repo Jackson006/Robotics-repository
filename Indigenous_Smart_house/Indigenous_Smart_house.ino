@@ -6,8 +6,6 @@
   Written by Limor Fried/Ladyada for Adafruit Industries.
   MIT license, all text above must be included in any redistribution
  ****************************************************/
-
-
 #define FORMAT_SPIFFS_IF_FAILED true
 
 // Wifi & Webserver
@@ -16,6 +14,9 @@
 #include <ESPAsyncWebServer.h>
 #include "wifiConfig.h"
 AsyncWebServer server(80);
+
+const char* http_username = "admin1";
+const char* http_password = "admin1";
 
 // RTC
 #include "RTClib.h"
@@ -97,7 +98,7 @@ void setup() {
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
    server.on("/LEDOff", HTTP_GET, [](AsyncWebServerRequest * request) {
-    digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(LED_BUILTIN, LOW);
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
   server.on("/logOutput", HTTP_GET, [](AsyncWebServerRequest * request) {
