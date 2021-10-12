@@ -85,19 +85,27 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (!request->authenticate(http_username, http_password))
+      return request->requestAuthentication();
     Serial.println("index");
     request->send(SPIFFS, "/index.html", "text/html");
   });
   server.on("/dashboard", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (!request->authenticate(http_username, http_password))
+      return request->requestAuthentication();
     Serial.println("dashboard");
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
   //LED Control
   server.on("/LEDOn", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (!request->authenticate(http_username, http_password))
+      return request->requestAuthentication();
     digitalWrite(LED_BUILTIN, HIGH);
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
-   server.on("/LEDOff", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server.on("/LEDOff", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (!request->authenticate(http_username, http_password))
+      return request->requestAuthentication();
     digitalWrite(LED_BUILTIN, LOW);
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
