@@ -91,14 +91,14 @@ void setup() {
     Serial.println("dashboard");
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
-  // LED control
+  //LED Control
   server.on("/LEDOn", HTTP_GET, [](AsyncWebServerRequest * request) {
     digitalWrite(LED_BUILTIN, HIGH);
-    request->send(SPIFFS, "/logEvents.csv", "text/html", true);
+    request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
-  server.on("/LEDOff", HTTP_GET, [](AsyncWebServerRequest * request) {
-    digitalWrite(LED_BUILTIN, LOW);
-    request->send(SPIFFS, "/logEvents.csv", "text/html", true);
+   server.on("/LEDOff", HTTP_GET, [](AsyncWebServerRequest * request) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
   server.on("/logOutput", HTTP_GET, [](AsyncWebServerRequest * request) {
     Serial.println("output");
