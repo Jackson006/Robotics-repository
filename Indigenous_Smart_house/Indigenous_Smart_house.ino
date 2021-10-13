@@ -59,6 +59,7 @@ void setup() {
     delay(10);
   }
   delay(1000);
+  pinMode(LED_BUILTIN, OUTPUT);
 
 
   if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
@@ -101,12 +102,15 @@ void setup() {
     if (!request->authenticate(http_username, http_password))
       return request->requestAuthentication();
     digitalWrite(LED_BUILTIN, HIGH);
+    Serial.println("LED On"); // Debugging purposes.
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
   server.on("/LEDOff", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (!request->authenticate(http_username, http_password))
       return request->requestAuthentication();
     digitalWrite(LED_BUILTIN, LOW);
+    Serial.println("LED Off"); // Debugging purposes.
+
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
   server.on("/logOutput", HTTP_GET, [](AsyncWebServerRequest * request) {
