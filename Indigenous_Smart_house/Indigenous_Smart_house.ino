@@ -110,19 +110,21 @@ void setup() {
       return request->requestAuthentication();
     digitalWrite(LED_BUILTIN, LOW);
     Serial.println("LED Off"); // Debugging purposes.
-    });
+  });
   //Pump Control
   server.on("/PumpOn", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (!request->authenticate(http_username, http_password))
       return request->requestAuthentication();
-    digitalWrite(LED_BUILTIN, HIGH);
+    myMotor->run(FORWARD);
+    pumpIsRunning = true;
     Serial.println("Pump On"); // Debugging purposes.
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
   server.on("/PumpOff", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (!request->authenticate(http_username, http_password))
       return request->requestAuthentication();
-    digitalWrite(LED_BUILTIN, LOW);
+    myMotor->run(RELEASE);
+    pumpIsRunning = false;
     Serial.println("Pump Off"); // Debugging purposes.
 
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
