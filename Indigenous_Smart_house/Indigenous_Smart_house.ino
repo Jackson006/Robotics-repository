@@ -146,7 +146,7 @@ void setup() {
   }
 
   // The following line can be uncommented if the time needs to be reset.
-  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   rtc.start();
 
@@ -173,9 +173,9 @@ void loop() {
 
 void updateEPD() {
   // Config
-  drawText(WiFi.localIP().toString(), EPD_BLACK, 2, 0, 0);
-  drawText(getTimeAsString(), EPD_BLACK, 1, 200, 0);
-  drawText(getDateAsString(), EPD_BLACK, 1, 190, 10);
+  drawText(WiFi.localIP().toString(), EPD_BLACK, 1, 130, 80);
+  drawText(getTimeAsString(), EPD_BLACK, 1, 130, 95);
+  drawText(getDateAsString(), EPD_BLACK, 1, 130, 105);
 
 
   // Draw lines to divvy up the EPD
@@ -195,6 +195,9 @@ void updateEPD() {
 
   drawText("Temp \tC", EPD_BLACK, 2, 0, 80);
   drawText(String(tempsensor.readTempC()), EPD_BLACK, 4, 0, 95);
+
+  // Indigenous Country Name
+  drawText("Gandangara", EPD_BLACK, 2, 0, 0);
 
   logEvent("Updating the EPD");
   display.display();
