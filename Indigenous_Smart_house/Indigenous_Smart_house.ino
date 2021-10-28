@@ -1,11 +1,9 @@
 /***************************************************
-  Adafruit invests time and resources providing this open source code,
-  please support Adafruit and open-source hardware by purchasing
-  products from Adafruit!
-
-  Written by Limor Fried/Ladyada for Adafruit Industries.
-  MIT license, all text above must be included in any redistribution
+The main function of the smart house is its ability to read the moisture value of the soil in the garden. 
+If the moisture value of the soil in the garden is too low, 
+the smart house activates the water pump to water the plants and the soil.
  ****************************************************/
+// defines the format of SPIIFS
 #define FORMAT_SPIFFS_IF_FAILED true
 
 // Wifi & Webserver
@@ -15,17 +13,19 @@
 #include "wifiConfig.h"
 AsyncWebServer server(80);
 
+// defines the username and password for the dashboard
 const char* http_username = "admin1";
 const char* http_password = "admin1";
 
-// RTC
+// RTC library which enables the use of the real time clock
 #include "RTClib.h"
 
+// Defines the days of the week
 RTC_PCF8523 rtc;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
 
-// EINK
+// defines the libraries for the EINK which enables the use of EINK
 #include "Adafruit_ThinkInk.h"
 
 #define EPD_CS      15
@@ -61,7 +61,7 @@ void setup() {
   delay(1000);
   pinMode(LED_BUILTIN, OUTPUT);
 
-
+// SPIFFS startup code
   if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
     // Follow instructions in README and install
     // https://github.com/me-no-dev/arduino-esp32fs-plugin
@@ -72,7 +72,7 @@ void setup() {
     Serial.println("Couldn't find ADT7410!");
     while (1);
   }
-
+// connects to the internet on start
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
@@ -85,6 +85,7 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
+// The authentication for the dashboard
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (!request->authenticate(http_username, http_password))
       return request->requestAuthentication();
@@ -126,7 +127,7 @@ void setup() {
     myMotor->run(RELEASE);
     pumpIsRunning = false;
     Serial.println("Pump Off"); // Debugging purposes.
-
+// Dashboard log events 
     request->send(SPIFFS, "/dashboard.html", "text/html", false, processor);
   });
   server.on("/logOutput", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -160,6 +161,7 @@ void setup() {
 }
 
 void loop() {
+  // defines the integer for the soil moisture
   int moisture = readSoil();
   waterPlant(moisture);
   updateEPD();
@@ -206,18 +208,21 @@ void updateEPD() {
 
 String processor(const String& var) {
   Serial.println(var);
-
+// gets the date and time
   if (var == "DATETIME") {
     String datetime = getTimeAsString() + " " + getDateAsString();
     return datetime;
   }
+  // reads to soil moisture
   if (var == "MOISTURE") {
     readSoil();
     return String(moistureValue);
   }
+  // reads the temperature
   if (var == "TEMPINC") {
     return String(tempsensor.readTempC());
   }
+  // reads the state of the pump
   if (var == "PUMPSTATE") {
     if (pumpIsRunning) {
       return "ON";
@@ -227,7 +232,7 @@ String processor(const String& var) {
   }
   return String();
 }
-
+// defines the variables for the Eink
 void drawText(String text, uint16_t color, int textSize, int x, int y) {
   display.setCursor(x, y);
   display.setTextColor(color);
@@ -289,10 +294,8 @@ int readSoil()
 
 void waterPlant(int moistureValue) {
   /*
-     Write a function which takes the moisture value,
+     checks the moisture value,
      and if it's below a certain value, turns the pump on.
-     The function is to be called waterPlant() which will
-     take the moisture value as an argument, and return no value.
   */
   if (moistureValue < 1000 ) {
     // motor/pump on
